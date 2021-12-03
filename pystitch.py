@@ -185,3 +185,6 @@ def grid_image(filename, savedir, grid_size, save_name):
     plt.legend(handles=patches, bbox_to_anchor=(1.05,1), loc=2, borderaxespad=0. )
     plt.savefig(savedir + '/' + save_name, bbox_inches='tight')
     plt.close()
+
+if __name__ == '__main__':
+    main()
