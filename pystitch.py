@@ -1,5 +1,6 @@
 from PIL import Image, ImageDraw
 import numpy as np
+import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.patches as mpatches
@@ -25,7 +26,7 @@ def convert_img(pallette, filename):
                 changed = (changed[0][0],changed[0][1],changed[0][2],255)
                 im.putpixel((x,y),changed)
         return im
-    
+
 def closest(pallette, inp):
     colors = np.array(pallette)
     inp = np.array(inp)
@@ -33,7 +34,7 @@ def closest(pallette, inp):
     sind = np.where(distances==np.amin(distances))
     sdist = colors[sind]
     return sdist
-    
+
 def get_chart():
     with open("convert.txt", 'r') as f:
         dmc,names,rgb,hex = [],[],[],[]
@@ -45,7 +46,7 @@ def get_chart():
             hex.append(str.rsplit(temp[6])[0])
         rgb = np.array(rgb)
     return dmc,names,rgb,hex
-    
+
 def main():
     file_list_column = [
         [
@@ -59,7 +60,7 @@ def main():
             )
         ],
     ]
-    
+
     image_viewer_column = [
         [sg.Text(size=(40,1), key="-TOUT-")],
         [sg.Image(key="-IMAGE-")],
@@ -69,7 +70,7 @@ def main():
         [sg.Input('20', enable_events=True, key='-GINPUT-')],
         [sg.Button('Preview', key='-PREVIEW-'), sg.Button('Save', key='-SAVE-'),sg.Button('Exit')]
     ]
-    
+
     layout = [
         [
             sg.Column(file_list_column),
@@ -77,9 +78,9 @@ def main():
             sg.Column(image_viewer_column),
         ]
     ]
-    
+
     window = sg.Window("Image Viewer", layout)
-    
+
     while True:
         event, values = window.read()
         if event == "Exit" or event == sg.WIN_CLOSED:
@@ -93,7 +94,7 @@ def main():
                 file_list = os.listdir(folder)
             except:
                 file_list = []
-            
+
             fnames = [
                 f
                 for f in file_list
@@ -120,13 +121,8 @@ def main():
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
-                grid_image(filename, values["-FOLDER-"], grid_size, 'tempimg.png')
-                imgname = str(values["-FOLDER-"]) + '/tempimg.png'
-                image = Image.open(imgname)
-                image.thumbnail((400,400))
-                buffer = io.BytesIO()
-                image.save(buffer, format='PNG')
-                data = buffer.getvalue()
+                imgprev = grid_image(filename, values["-FOLDER-"], grid_size, 'temp.png', True)
+                data = imgprev.getvalue()
                 window["-IMAGE-"].update(data=data)
             except:
                 pass
@@ -137,14 +133,14 @@ def main():
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
-                grid_image(filename, values["-FOLDER-"], grid_size, save_name)
+                imvprev = grid_image(filename, values["-FOLDER-"], grid_size, save_name, False)
                 break
             except:
                 pass
-            
+
     window.close()
-    
-def grid_image(filename, savedir, grid_size, save_name):
+
+def grid_image(filename, savedir, grid_size, save_name, preview):
     dmc,names,rgb,hex = get_chart()
     im = convert_img(rgb,filename)
     rimg = im.resize((im.width*2,im.height*2),resample=0)
@@ -165,7 +161,7 @@ def grid_image(filename, savedir, grid_size, save_name):
         line = ((x_start, y), (x_end, y))
         draw.line(line, fill=(220,220,220))
 
-    rimg.save('gridimg.png')
+    #rimg.save('gridimg.png')
     cols = rimg.getcolors()
     legenditems = []
     for c in cols:
@@ -174,17 +170,24 @@ def grid_image(filename, savedir, grid_size, save_name):
             continue
         loc = rgb.tolist().index(search)
         legenditems.append((hex[loc],dmc[loc],names[loc]))
-    img = mpimg.imread('gridimg.png')
-    plt.figure()
+    #img = mpimg.imread('gridimg.png')
+    img = rimg
+    fig = plt.figure()
     imgplot = plt.imshow(img)
     ax = plt.gca()
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
     patches = [ mpatches.Patch(color=legenditems[i][0], label="{d} {t}".format(d=legenditems[i][1],t=legenditems[i][2])) for i in range(len(legenditems)) ]
-    
     plt.legend(handles=patches, bbox_to_anchor=(1.05,1), loc=2, borderaxespad=0. )
-    plt.savefig(savedir + '/' + save_name, bbox_inches='tight')
-    plt.close()
+    img_buf = io.BytesIO()
+    if preview:
+        plt.savefig(img_buf, bbox_inches='tight',format='png')
+        plt.close()
+        return img_buf
+    else:
+        plt.savefig(savedir + '/' + save_name, bbox_inches='tight')
+        plt.close()
+
 
 if __name__ == '__main__':
     main()
