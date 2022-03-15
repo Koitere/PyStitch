@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 import numpy as np
-import matplotlib; matplotlib.use('agg')
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.patches as mpatches
@@ -67,7 +67,7 @@ def main():
         [sg.Text("Save Name")],
         [sg.Input('', enable_events=True, key='-SINPUT-')],
         [sg.Text("Grid Size")],
-        [sg.Input('20', enable_events=True, key='-GINPUT-')],
+        [sg.Slider(orientation ='horizontal', key='-GSLIDER-', range=(1,100),enable_events=True,default_value=20)],
         [sg.Button('Preview', key='-PREVIEW-'), sg.Button('Save', key='-SAVE-'),sg.Button('Exit')]
     ]
 
@@ -79,15 +79,14 @@ def main():
         ]
     ]
 
-    window = sg.Window("Image Viewer", layout)
-
+    window = sg.Window("PyStitch - CrossStitch Pattern Generator", layout)
+    dmc,names,rgb,hex = get_chart()
+    prevname = ''
+    previewing = False
     while True:
         event, values = window.read()
         if event == "Exit" or event == sg.WIN_CLOSED:
             break
-        if len(values['-GINPUT-']) and values['-GINPUT-'][-1] not in ('0123456789'):
-            # delete last char from input
-            window['-GINPUT-'].update(values['-GINPUT-'][:-1])
         if event == "-FOLDER-":
             folder = values["-FOLDER-"]
             try:
@@ -107,6 +106,7 @@ def main():
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
+                previewing = False
                 image = Image.open(filename)
                 image.thumbnail((400,400))
                 buffer = io.BytesIO()
@@ -117,33 +117,49 @@ def main():
                 pass
         elif event == "-PREVIEW-":
             try:
-                grid_size = values["-GINPUT-"]
+                previewing = True
+                grid_size = int(values['-GSLIDER-'])
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
-                imgprev = grid_image(filename, values["-FOLDER-"], grid_size, 'temp.png', True)
+                if filename != prevname:
+                    im = convert_img(rgb,filename)
+                    rimg = im.resize((im.width*2,im.height*2),resample=0)
+                    imgprev = grid_image(rimg, values["-FOLDER-"], grid_size, 'temp.png', True)
+                else:
+                    imgprev = grid_image(rimg, values["-FOLDER-"], grid_size, 'temp.png', True)
+                prevname = filename
                 data = imgprev.getvalue()
                 window["-IMAGE-"].update(data=data)
             except:
                 pass
         elif event == '-SAVE-':
             try:
-                grid_size = values["-GINPUT-"]
+                grid_size = int(values['-GSLIDER-'])
                 save_name = values["-SINPUT-"]
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
-                imvprev = grid_image(filename, values["-FOLDER-"], grid_size, save_name, False)
+                imgprev = grid_image(rimg, values["-FOLDER-"], grid_size, save_name, False)
                 break
+            except:
+                pass
+        elif event == '-GSLIDER-':
+            try:
+                if previewing:
+                    grid_size = int(values['-GSLIDER-'])
+                    imgprev = grid_image(rimg, values["-FOLDER-"], grid_size, 'temp.png', True)
+                    data = imgprev.getvalue()
+                    window["-IMAGE-"].update(data=data)
             except:
                 pass
 
     window.close()
 
-def grid_image(filename, savedir, grid_size, save_name, preview):
+
+def grid_image(imgdata, savedir, grid_size, save_name, preview):
     dmc,names,rgb,hex = get_chart()
-    im = convert_img(rgb,filename)
-    rimg = im.resize((im.width*2,im.height*2),resample=0)
+    rimg = imgdata.copy()
     # Draw some lines
     draw = ImageDraw.Draw(rimg)
     y_start = 0
@@ -161,7 +177,6 @@ def grid_image(filename, savedir, grid_size, save_name, preview):
         line = ((x_start, y), (x_end, y))
         draw.line(line, fill=(220,220,220))
 
-    #rimg.save('gridimg.png')
     cols = rimg.getcolors()
     legenditems = []
     for c in cols:
@@ -170,7 +185,6 @@ def grid_image(filename, savedir, grid_size, save_name, preview):
             continue
         loc = rgb.tolist().index(search)
         legenditems.append((hex[loc],dmc[loc],names[loc]))
-    #img = mpimg.imread('gridimg.png')
     img = rimg
     fig = plt.figure()
     imgplot = plt.imshow(img)
